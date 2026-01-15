@@ -1,57 +1,100 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Flappy Bird JS</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flappy Flight</title>
+
   <style>
     body {
       margin: 0;
-      background: #70c5ce;
       overflow: hidden;
+      background: #87CEEB;
       font-family: Arial, sans-serif;
     }
-	canvas {
-	  display: block;
-	  background: #70c5ce;
-	  width: 100vw;
-	  height: 100vh;
-	}
-    #restartBtn {
-      display: none;
+
+    canvas {
+      display: block;
+      outline: none;
+    }
+
+    /* Fade-in animation */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Fade-out animation */
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    /* Gentle floating animation */
+    @keyframes float {
+      0% { transform: translate(-50%, -5px); }
+      50% { transform: translate(-50%, 5px); }
+      100% { transform: translate(-50%, -5px); }
+    }
+
+    #startMenu {
       position: absolute;
-      top: 260px;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      background: rgba(0,0,0,0.5);
+      padding: 20px 30px;
+      border-radius: 12px;
+      color: white;
+      opacity: 0;
+      animation: fadeIn 0.8s ease-out forwards, float 3s ease-in-out infinite;
+      pointer-events: auto;
+    }
+
+    #startMenu.fade-out {
+      animation: fadeOut 0.5s ease-out forwards;
+      pointer-events: none;
+    }
+
+    #startMenu img {
+      width: 300px;
+      margin-top: 10px;
+    }
+
+    #restartBtn {
+      position: absolute;
+      top: 52%;
       left: 50%;
       transform: translateX(-50%);
       padding: 12px 24px;
-      font-size: 20px;
-      cursor: pointer;
-      border: none;
-      background: #ff4444;
+      font-size: 24px;
+      background: red;
       color: white;
-      border-radius: 6px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.4s ease-out;
+      display: none;
+    }
+
+    #restartBtn.show {
+      opacity: 1;
     }
   </style>
 </head>
+
 <body>
+  <canvas id="game" tabindex="0"></canvas>
 
-  <canvas id="game"></canvas>
-<button id="restartBtn" style="
-  display:none;
-  position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%, -50%);
-  padding:16px 32px;
-  font-size:24px;
-  cursor:pointer;
-  border:none;
-  background:#ff4444;
-  color:white;
-  border-radius:8px;
-">
-  Restart
-</button>
+  <div id="startMenu">
+    <img src="start_screen.png" alt="Start screen" />
+    <p>Press SPACE to flap<br>Avoid the pipes<br>Click to start</p>
 
+  </div>
+
+  <button id="restartBtn">Restart</button>
 
   <script src="game.js"></script>
 </body>
