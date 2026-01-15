@@ -51,6 +51,51 @@ let bird, pipes, score, gameOver, gameStarted;
 let jumpPressed = false;
 let hasSeenMenu = false;
 
+// ------------------------------
+// DIFFICULTY SCALING
+// ------------------------------
+function getDifficulty() {
+  return 1 + score * 0.05;
+}
+
+// ------------------------------
+// CLOUDS
+// ------------------------------
+let clouds = [];
+
+function createCloud() {
+  const width = Math.random() * 120 + 80;
+  const height = width * 0.35;
+
+  clouds.push({
+    x: canvas.width + width,
+    y: Math.random() * canvas.height * 0.4,
+    width,
+    height,
+    speed: Math.random() * 20 + 10,
+    opacity: Math.random() * 0.3 + 0.4
+  });
+}
+
+for (let i = 0; i < 6; i++) createCloud();
+
+function drawFlatCloud(cloud) {
+  ctx.globalAlpha = cloud.opacity;
+  ctx.fillStyle = "white";
+
+  const w = cloud.width;
+  const h = cloud.height;
+
+  ctx.fillRect(cloud.x, cloud.y, w, h * 0.5);
+  ctx.fillRect(cloud.x + w * 0.15, cloud.y - h * 0.25, w * 0.7, h * 0.5);
+  ctx.fillRect(cloud.x + w * 0.25, cloud.y + h * 0.3, w * 0.5, h * 0.4);
+
+  ctx.globalAlpha = 1;
+}
+
+// ------------------------------
+// INIT GAME
+// ------------------------------
 function initGame() {
   const birdSize = scale(40);
 
@@ -85,6 +130,9 @@ function initGame() {
   }
 }
 
+// ------------------------------
+// INPUT
+// ------------------------------
 canvas.addEventListener("click", () => {
   if (!gameStarted) {
     hasSeenMenu = true;
@@ -115,8 +163,13 @@ restartBtn.addEventListener("click", () => {
   initGame();
 });
 
+// ------------------------------
+// PIPE GENERATION
+// ------------------------------
 function spawnPipe() {
-  const gap = canvas.height * 0.16;
+  const baseGap = canvas.height * 0.16;
+  const gap = baseGap / getDifficulty();
+
   const minTop = canvas.height * 0.1;
   const maxTop = canvas.height * 0.55;
   const topHeight = Math.random() * (maxTop - minTop) + minTop;
@@ -138,19 +191,34 @@ function collides(pipe) {
   return inX && (hitTop || hitBottom);
 }
 
+// ------------------------------
+// UPDATE LOOP
+// ------------------------------
 function update(dt) {
   if (!gameStarted || gameOver) return;
 
+  // CLOUDS
+  clouds.forEach(cloud => {
+    cloud.x -= cloud.speed * dt;
+  });
+
+  clouds = clouds.filter(cloud => cloud.x + cloud.width > 0);
+
+  if (Math.random() < 0.01) createCloud();
+
+  // BIRD
   bird.vel += bird.gravity * dt;
   bird.y += bird.vel * dt;
 
   bird.frameIndex = bird.vel < -50 ? 0 : bird.vel < 200 ? 1 : 2;
 
-  if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width * 0.55) {
+  // PIPES
+  const spawnThreshold = canvas.width * (0.55 / getDifficulty());
+  if (pipes.length === 0 || pipes[pipes.length - 1].x < spawnThreshold) {
     spawnPipe();
   }
 
-  const pipeSpeed = scale(240);
+  const pipeSpeed = scale(240) * getDifficulty();
   pipes.forEach(pipe => pipe.x -= pipeSpeed * dt);
   pipes = pipes.filter(pipe => pipe.x + pipe.width > 0);
 
@@ -170,12 +238,11 @@ function update(dt) {
   });
 }
 
-function getPipeScale(pipeWidth) {
-  return pipeWidth / pipeBodyImg.naturalWidth;
-}
-
+// ------------------------------
+// PIPE RENDERING
+// ------------------------------
 function drawPipeSegment(img, x, y, width, height) {
-  const scaleFactor = getPipeScale(width);
+  const scaleFactor = width / img.naturalWidth;
   const segmentHeight = img.naturalHeight * scaleFactor;
   let drawn = 0;
 
@@ -193,14 +260,24 @@ function drawPipeSegment(img, x, y, width, height) {
   }
 }
 
+// ------------------------------
+// DRAW LOOP
+// ------------------------------
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // SKY
+  ctx.fillStyle = "#87CEEB";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // CLOUDS
+  clouds.forEach(drawFlatCloud);
+
+  // BIRD
   const frame = birdFrames[bird.frameIndex];
   ctx.drawImage(frame, bird.x, bird.y, bird.width, bird.height);
 
+  // PIPES
   pipes.forEach(pipe => {
-    const scaleFactor = getPipeScale(pipe.width);
+    const scaleFactor = pipe.width / pipeBodyImg.naturalWidth;
     const capHeight = pipeTopImg.naturalHeight * scaleFactor;
 
     const topBodyHeight = pipe.top - capHeight;
@@ -217,20 +294,36 @@ function draw() {
     }
   });
 
+  // SCORE
   ctx.fillStyle = "white";
   ctx.font = scale(40) + "px Arial";
+  ctx.textAlign = "left";
   ctx.fillText(score, scale(20), scale(60));
 
+  // GAME OVER SCREEN
   if (gameOver) {
     ctx.fillStyle = "red";
     ctx.font = scale(60) + "px Arial";
-    ctx.fillText("Game Over", canvas.width * 0.28, canvas.height * 0.45);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2 - scale(40);
+
+    ctx.fillText("Game Over", centerX, centerY);
+
+    restartBtn.style.left = "50%";
+    restartBtn.style.top = (centerY + scale(80)) + "px";
+    restartBtn.style.transform = "translateX(-50%)";
 
     restartBtn.style.display = "block";
     setTimeout(() => restartBtn.classList.add("show"), 20);
   }
 }
 
+// ------------------------------
+// MAIN LOOP
+// ------------------------------
 function loop(timestamp) {
   const dt = (timestamp - lastTime) / 1000;
   lastTime = timestamp;
