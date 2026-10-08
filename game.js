@@ -19,13 +19,11 @@ function resizeCanvas() {
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-// Load bird frames
 const birdFrames = [new Image(), new Image(), new Image()];
 birdFrames[0].src = "bird_up.png";
 birdFrames[1].src = "bird_mid.png";
 birdFrames[2].src = "bird_down.png";
 
-// Load pipe parts
 const pipeTopImg = new Image();
 const pipeBodyImg = new Image();
 const pipeBottomImg = new Image();
@@ -48,20 +46,15 @@ function assetLoaded() {
 });
 
 let bird, pipes, score, gameOver, gameStarted;
-let jumpPressed = false;
 let hasSeenMenu = false;
 
-// ------------------------------
-// DIFFICULTY SCALING
-// ------------------------------
+let clouds = [];
+let cloudSpawnTimer = 0;
+
+
 function getDifficulty() {
   return 1 + score * 0.05;
 }
-
-// ------------------------------
-// CLOUDS
-// ------------------------------
-let clouds = [];
 
 function createCloud() {
   const width = Math.random() * 120 + 80;
@@ -93,9 +86,6 @@ function drawFlatCloud(cloud) {
   ctx.globalAlpha = 1;
 }
 
-// ------------------------------
-// INIT GAME
-// ------------------------------
 function initGame() {
   const birdSize = scale(40);
 
@@ -105,34 +95,28 @@ function initGame() {
     width: birdSize,
     height: birdSize,
     vel: 0,
-    gravity: scale(1400),
-    jump: scale(-420),
+
+    gravity: 1400,
+    jump: -420,
+
     frameIndex: 0
   };
 
   pipes = [];
   score = 0;
   gameOver = false;
-  jumpPressed = false;
   lastTime = performance.now();
 
   restartBtn.classList.remove("show");
   restartBtn.style.display = "none";
 
-  if (!hasSeenMenu) {
-    gameStarted = false;
-    startMenu.style.display = "block";
-  } else {
-    gameStarted = true;
-    startMenu.style.display = "none";
-    canvas.focus();
-    requestAnimationFrame(loop);
-  }
+  gameStarted = true;
+  startMenu.style.display = "none";
+  canvas.focus();
+  requestAnimationFrame(loop);
 }
 
-// ------------------------------
-// INPUT
-// ------------------------------
+
 canvas.addEventListener("click", () => {
   if (!gameStarted) {
     hasSeenMenu = true;
@@ -148,24 +132,19 @@ canvas.addEventListener("click", () => {
   }
 });
 
-document.addEventListener("keydown", () => {
-  if (!gameOver && gameStarted && !jumpPressed) {
+document.addEventListener("keydown", (e) => {
+  if (!gameOver && gameStarted) {
+    if (e.repeat) return; 
     bird.vel = bird.jump;
-    jumpPressed = true;
   }
 });
 
-document.addEventListener("keyup", () => {
-  jumpPressed = false;
-});
 
 restartBtn.addEventListener("click", () => {
   initGame();
 });
 
-// ------------------------------
-// PIPE GENERATION
-// ------------------------------
+
 function spawnPipe() {
   const baseGap = canvas.height * 0.16;
   const gap = baseGap / getDifficulty();
@@ -185,34 +164,42 @@ function spawnPipe() {
 }
 
 function collides(pipe) {
-  const inX = bird.x < pipe.x + pipe.width && bird.x + bird.width > pipe.x;
-  const hitTop = bird.y < pipe.top;
-  const hitBottom = bird.y + bird.height > pipe.bottom;
+  const padding = bird.width * 0.2;
+
+  const bx = bird.x + padding;
+  const by = bird.y + padding;
+  const bw = bird.width - padding * 2;
+  const bh = bird.height - padding * 2;
+
+  const inX = bx < pipe.x + pipe.width && bx + bw > pipe.x;
+  const hitTop = by < pipe.top;
+  const hitBottom = by + bh > pipe.bottom;
+
   return inX && (hitTop || hitBottom);
 }
 
-// ------------------------------
-// UPDATE LOOP
-// ------------------------------
+
 function update(dt) {
   if (!gameStarted || gameOver) return;
 
-  // CLOUDS
   clouds.forEach(cloud => {
     cloud.x -= cloud.speed * dt;
   });
 
   clouds = clouds.filter(cloud => cloud.x + cloud.width > 0);
 
-  if (Math.random() < 0.01) createCloud();
+  cloudSpawnTimer += dt;
+  if (cloudSpawnTimer > 0.25) {
+    createCloud();
+    cloudSpawnTimer = 0;
+  }
 
-  // BIRD
   bird.vel += bird.gravity * dt;
   bird.y += bird.vel * dt;
 
   bird.frameIndex = bird.vel < -50 ? 0 : bird.vel < 200 ? 1 : 2;
 
-  // PIPES
+
   const spawnThreshold = canvas.width * (0.55 / getDifficulty());
   if (pipes.length === 0 || pipes[pipes.length - 1].x < spawnThreshold) {
     spawnPipe();
@@ -238,9 +225,6 @@ function update(dt) {
   });
 }
 
-// ------------------------------
-// PIPE RENDERING
-// ------------------------------
 function drawPipeSegment(img, x, y, width, height) {
   const scaleFactor = width / img.naturalWidth;
   const segmentHeight = img.naturalHeight * scaleFactor;
@@ -260,22 +244,15 @@ function drawPipeSegment(img, x, y, width, height) {
   }
 }
 
-// ------------------------------
-// DRAW LOOP
-// ------------------------------
 function draw() {
-  // SKY
   ctx.fillStyle = "#87CEEB";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // CLOUDS
   clouds.forEach(drawFlatCloud);
 
-  // BIRD
   const frame = birdFrames[bird.frameIndex];
   ctx.drawImage(frame, bird.x, bird.y, bird.width, bird.height);
 
-  // PIPES
   pipes.forEach(pipe => {
     const scaleFactor = pipe.width / pipeBodyImg.naturalWidth;
     const capHeight = pipeTopImg.naturalHeight * scaleFactor;
@@ -294,42 +271,31 @@ function draw() {
     }
   });
 
-  // SCORE
   ctx.fillStyle = "white";
   ctx.font = scale(40) + "px Arial";
   ctx.textAlign = "left";
   ctx.fillText(score, scale(20), scale(60));
 
-  // GAME OVER SCREEN
   if (gameOver) {
     ctx.fillStyle = "red";
     ctx.font = scale(60) + "px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2 - scale(40);
-
     ctx.fillText("Game Over", centerX, centerY);
-
     restartBtn.style.left = "50%";
     restartBtn.style.top = (centerY + scale(80)) + "px";
     restartBtn.style.transform = "translateX(-50%)";
-
     restartBtn.style.display = "block";
     setTimeout(() => restartBtn.classList.add("show"), 20);
   }
 }
 
-// ------------------------------
-// MAIN LOOP
-// ------------------------------
 function loop(timestamp) {
   const dt = (timestamp - lastTime) / 1000;
   lastTime = timestamp;
-
   update(dt);
   draw();
-
   requestAnimationFrame(loop);
 }
